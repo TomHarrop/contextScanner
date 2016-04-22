@@ -4,6 +4,7 @@
 import sys
 import re
 
+
 # function to find negindent line
 def find_negindent(lines):
     negindent_lines = []
@@ -12,59 +13,77 @@ def find_negindent(lines):
             negindent_lines.append(i)
     return(negindent_lines)
 
-# function to find previous head
-# walk backwards until find a *section
-# then walk forwards until find a blankline
-def find_previous_head(lines, negindent_line):
-    print(lines[negindent_line])
+
+# find previous head and next head
+def find_indent_section(lines, negindent_line):
+    n = negindent_line
+    while not re.search("\\\.*section\\[", lines[n]):
+        n -= 1
+    start_head = n
+    n = negindent_line
+    while not re.search("\\\.*section\\[", lines[n]):
+        n += 1
+    stop_section = n
+    return(start_head, stop_section)
+
 
 # function to find smaller lines
+def find_smaller(lines):
+    smaller_lines = []
+    for i in range(0, len(lines)):
+        if re.search("<-smaller->", lines[i]):
+            smaller_lines.append(i)
+    return(smaller_lines)
 
-# set matching variables. these will be toggled to on when a match is found
-negindent = False
-smaller = False
+
+# find next head
+def find_next_head(lines, smaller_line):
+    n = smaller_line
+    while (not re.search("\\\.*section\\[", lines[n]) and not
+            re.search('\\\stoptext', lines[n])):
+        n += 1
+    stop_section = n
+    return(stop_section)
 
 # read tex file
 with open(sys.argv[1], 'r') as f:
     lines = f.readlines()
 
-# find negindent calls
+# find negindent tags
 negindent_lines = find_negindent(lines)
 
-# find header for negindent
-for negindent_line in negindent_lines:
-    print(negindent_line)
-    find_previous_head(lines, negindent_line)
-    find_previous_head(lines, negindent_line - 1)
-    find_previous_head(lines, negindent_line - 2)
+# find bits to negindent
+start_heads = []
+stop_sections = []
+for negindent in negindent_lines:
+    start_head, stop_section = find_indent_section(lines, negindent)
+    start_heads.append(start_head)
+    stop_sections.append(stop_section)
 
+# set the negindents: starts first, then stops
+for head in start_heads:
+    lines[head] = '\startnegindent\n\n' + lines[head]
+for head in stop_sections:
+    lines[head] = '\stopnegindent\n\n' + lines[head]
 
-# for i in range(0, len(lines) - 2):
-    # if not smaller and re.search("<-smaller->", lines[i]):
-    #     smaller = True
-    #     print("{\switchtobodyfont[small]")
-    # if not negindent and re.search("<-negindent->", lines[i]):
-    #     negindent = True
-    #     print("\n\startnegindent\n")
-    #     print(lines[i - 2].strip('\n\r'))
-    # elif (negindent and not smaller and
-    #         re.search("^\\\.*section\\[", lines[i])):
-    #     negindent = False
-    #     print("\stopnegindent\n")
-    #     print(lines[i].strip('\n\r'))
-    # # elif (smaller and not negindent and
-    #         re.search("^\\\.*section\\[", lines[i])):
-    #     smaller = False
-    #     print("}\n")
-    #     print(lines[i].strip('\n\r'))
-    # elif (smaller and negindent and
-    #         re.search("^\\\.*section\\[", lines[i])):
-    #     negindent = False
-    #     smaller = False
-    #     print("\stopnegindent\n\n}\n")
-    #     print(lines[i].strip('\n\r'))
-#     if not re.search("<-negindent->", lines[i + 2]):
-#         print(lines[i].strip('\n\r'))
+# remove negindent tags
+for negindent in negindent_lines:
+    lines[negindent] = ''
 
-# print(lines[len(lines) - 2].strip('\n\r'))
-# print(lines[len(lines) - 1].strip('\n\r'))
+# find smaller sections
+smaller_lines = find_smaller(lines)
+smaller_stops = []
+for smaller in smaller_lines:
+    smaller_stops.append(find_next_head(lines, smaller))
+
+# change body font for smaller sections
+for smaller in smaller_lines:
+    # print(lines[smaller])
+    lines[smaller] = '{\switchtobodyfont[small]\n\n'
+    # print(lines[smaller])
+for smaller in smaller_stops:
+    # print(lines[smaller])
+    lines[smaller] = '}\n\n' + lines[smaller]
+    # print(lines[smaller])
+
+print(''.join(lines))
