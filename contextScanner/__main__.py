@@ -62,9 +62,9 @@ for negindent in negindent_lines:
 
 # set the negindents: starts first, then stops
 for head in start_heads:
-    lines[head] = '\startnegindent\n\n' + lines[head]
+    lines[head] = '{\startnegindent\n\n' + lines[head]
 for head in stop_sections:
-    lines[head] = '\stopnegindent\n\n' + lines[head]
+    lines[head] = '\stopnegindent\n\n}\n\n' + lines[head]
 
 # remove negindent tags
 for negindent in negindent_lines:
@@ -78,12 +78,8 @@ for smaller in smaller_lines:
 
 # change body font for smaller sections
 for smaller in smaller_lines:
-    # print(lines[smaller])
     lines[smaller] = '{\switchtobodyfont[small]\n\n'
-    # print(lines[smaller])
 for smaller in smaller_stops:
-    # print(lines[smaller])
     lines[smaller] = '}\n\n' + lines[smaller]
-    # print(lines[smaller])
 
 print(''.join(lines))
