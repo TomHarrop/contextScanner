@@ -5,13 +5,13 @@ import sys
 import re
 
 
-# function to find negindent line
-def find_negindent(lines):
-    negindent_lines = []
+# function to find key
+def find_key(lines, key):
+    matched_lines = []
     for i in range(0, len(lines)):
-        if re.search("<-negindent->", lines[i]):
-            negindent_lines.append(i)
-    return(negindent_lines)
+        if re.search(key, lines[i]):
+            matched_lines.append(i)
+    return(matched_lines)
 
 
 # find previous head and next head
@@ -27,15 +27,6 @@ def find_indent_section(lines, negindent_line):
     return(start_head, stop_section)
 
 
-# function to find smaller lines
-def find_smaller(lines):
-    smaller_lines = []
-    for i in range(0, len(lines)):
-        if re.search("<-smaller->", lines[i]):
-            smaller_lines.append(i)
-    return(smaller_lines)
-
-
 # find next head
 def find_next_head(lines, smaller_line):
     n = smaller_line
@@ -45,12 +36,21 @@ def find_next_head(lines, smaller_line):
     stop_section = n
     return(stop_section)
 
+
+# find end of references section
+def find_ref_end(lines, refcut_line):
+    n = refcut_line
+    while not re.search("^{$", lines[n]):
+        n += 1
+    ref_end = n
+    return(ref_end)
+
 # read tex file
 with open(sys.argv[1], 'r') as f:
     lines = f.readlines()
 
 # find negindent tags
-negindent_lines = find_negindent(lines)
+negindent_lines = find_key(lines, "<-negindent->")
 
 # find bits to negindent
 start_heads = []
@@ -71,7 +71,7 @@ for negindent in negindent_lines:
     lines[negindent] = ''
 
 # find smaller sections
-smaller_lines = find_smaller(lines)
+smaller_lines = find_key(lines, "<-smaller->")
 smaller_stops = []
 for smaller in smaller_lines:
     smaller_stops.append(find_next_head(lines, smaller))
@@ -81,5 +81,41 @@ for smaller in smaller_lines:
     lines[smaller] = '{\switchtobodyfont[small]\n\n'
 for smaller in smaller_stops:
     lines[smaller] = '}\n\n' + lines[smaller]
+
+# find refcuts (should only be one)
+refcut_line = find_key(lines, "<-refcut->")[0]
+ref_end = find_ref_end(lines, refcut_line)
+
+# find refpaste (should only be one)
+refpaste_line = find_key(lines, "<-refpaste->")[0]
+
+# extract the references section 
+ref_sec = lines[refcut_line:ref_end]
+
+# remove tag
+ref_sec[0] = ''
+
+# convert refseq to itemised list
+for i in range(0, len(ref_sec) - 1):
+    if re.search('\\\\reference', ref_sec[i]):
+        ref_sec[i + 1] = re.sub(r'^(\d+)\.', r'\sym{\1.\hskip1em}', ref_sec[i + 1])
+        ref_sec[i] = ''
+
+# add itemize keys
+ref_sec.insert(0, "{\setupitemize[each][packed][itemalign=flushright]\startitemize[n, packed]\n\n")
+ref_sec.append('\stopitemize}\n\n')
+
+# blank out the refcut area
+for i in range(refcut_line, ref_end):
+    lines[i] = ''
+
+#insert ref_sec at ref_paste
+lines[refpaste_line] = ''.join(ref_sec)
+
+# print(lines[refpaste_line])
+
+# print(''.join(lines[refpaste_line]))
+
+# print(''.join(ref_sec))
 
 print(''.join(lines))
