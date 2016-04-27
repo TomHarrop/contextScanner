@@ -8,7 +8,7 @@ import re
 # function to find key
 def find_key(lines, key):
     matched_lines = []
-    for i in range(0, len(lines)):
+    for i in range(0, len(lines) - 1):
         if re.search(key, lines[i]):
             matched_lines.append(i)
     return(matched_lines)
@@ -40,7 +40,8 @@ def find_next_head(lines, smaller_line):
 # find end of references section
 def find_ref_end(lines, refcut_line):
     n = refcut_line
-    while not re.search("^{$", lines[n]):
+    while (not re.search("^{$", lines[n]) and not
+            re.search('\\\stoptext', lines[n])):
         n += 1
     ref_end = n
     return(ref_end)
@@ -48,6 +49,7 @@ def find_ref_end(lines, refcut_line):
 # read tex file
 with open(sys.argv[1], 'r') as f:
     lines = f.readlines()
+# print(''.join(lines))
 
 # find negindent tags
 negindent_lines = find_key(lines, "<-negindent->")
@@ -83,34 +85,36 @@ for smaller in smaller_stops:
     lines[smaller] = '}\n\n' + lines[smaller]
 
 # find refcuts (should only be one)
-refcut_line = find_key(lines, "<-refcut->")[0]
-ref_end = find_ref_end(lines, refcut_line)
+refcut_lines = find_key(lines, "<-refcut->")
+if len(refcut_lines) > 0:
+    refcut_line = refcut_lines[0]
+    ref_end = find_ref_end(lines, refcut_line)
 
-# find refpaste (should only be one)
-refpaste_line = find_key(lines, "<-refpaste->")[0]
+    # find refpaste (should only be one)
+    refpaste_line = find_key(lines, "<-refpaste->")[0]
 
-# extract the references section 
-ref_sec = lines[refcut_line:ref_end]
+    # extract the references section 
+    ref_sec = lines[refcut_line:ref_end]
 
-# remove tag
-ref_sec[0] = ''
+    # remove tag
+    ref_sec[0] = ''
 
-# convert refseq to itemised list
-for i in range(0, len(ref_sec) - 1):
-    if re.search('\\\\reference', ref_sec[i]):
-        ref_sec[i + 1] = re.sub(r'^(\d+)\.', r'\sym{\1.\hskip1em}', ref_sec[i + 1])
-        ref_sec[i] = ''
+    # convert refseq to itemised list
+    for i in range(0, len(ref_sec) - 1):
+        if re.search('\\\\reference', ref_sec[i]):
+            ref_sec[i + 1] = re.sub(r'^(\d+)\.', r'\sym{\1.\hskip1em}', ref_sec[i + 1])
+            ref_sec[i] = ''
 
-# add itemize keys
-ref_sec.insert(0, "{\setupitemize[each][packed][itemalign=flushright]\startitemize[n, packed]\n\n")
-ref_sec.append('\stopitemize}\n\n')
+    # add itemize keys
+    ref_sec.insert(0, "{\setupitemize[each][packed][itemalign=flushright]\startitemize[n, packed]\n\n")
+    ref_sec.append('\stopitemize}\n\n')
 
-# blank out the refcut area
-for i in range(refcut_line, ref_end):
-    lines[i] = ''
+    # blank out the refcut area
+    for i in range(refcut_line, ref_end):
+        lines[i] = ''
 
-#insert ref_sec at ref_paste
-lines[refpaste_line] = ''.join(ref_sec)
+    #insert ref_sec at ref_paste
+    lines[refpaste_line] = ''.join(ref_sec)
 
 # print(lines[refpaste_line])
 
